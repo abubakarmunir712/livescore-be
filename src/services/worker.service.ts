@@ -141,7 +141,7 @@ export const worker = async () => {
     let liveFixtures: any[] = []
     setInterval(async () => {
         console.log("Worker Started")
-        const lMatches = await getLiveMatches(false, 60, 60)
+        const lMatches = await getLiveMatches(true, 60, 60)
         if (lMatches.data) {
             prevLive = liveFixtures
             liveFixtures = lMatches.data

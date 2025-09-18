@@ -283,7 +283,7 @@ export const getFixtureStatistics = async (
     maxAge: number | null
 ): Promise<FootballAPIResponse> => {
     if (!realTime) {
-        const cache = await getValueFromCache(`event-${fixture}`, maxAge);
+        const cache = await getValueFromCache(`statistics-${fixture}`, maxAge);
         if (cache) {
             console.log("Cached - Statistics", fixture)
             return { data: cache.data };
@@ -295,7 +295,7 @@ export const getFixtureStatistics = async (
 
     if (liveData.data) {
         await redis.set(
-            `event-${fixture}`,
+            `statistics-${fixture}`,
             JSON.stringify({
                 data: liveData.data,
                 createdAt: Date.now()
