@@ -1,7 +1,7 @@
 import { Router } from "express";
-import { getLiveMatchesC } from "../controllers/football.controller";
+import { getMatchesByDateC } from "../controllers/football.controller";
 const router = Router()
 
-router.get("/live", getLiveMatchesC)
+router.post("/matches", getMatchesByDateC)
 
 export { router as footballRouter }

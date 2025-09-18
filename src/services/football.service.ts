@@ -105,6 +105,7 @@ export const getMatchesByDate = async (
         const cache = await getValueFromCache(`fixture-${dateString}`, maxAge);
         if (cache) {
             console.log("Cached - Fixtures ", dateString)
+            return { data: cache.data };
         }
     }
 
@@ -220,7 +221,7 @@ export const getTeamFixtures = async (
         }
     }
 
-    const url = `${API_URL}/fixtures?team=${team}&least=5&status=ft`;
+    const url = `${API_URL}/fixtures?team=${team}&last=5&status=ft`;
     const liveData = await fetchFootballAPI(url);
 
     if (liveData.data) {
