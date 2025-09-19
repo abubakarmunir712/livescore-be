@@ -303,7 +303,10 @@ export const getFixtureStatistics = async (
             "EX",
             TTL
         );
+        console.log("Live - Statistics", fixture)
     }
-    console.log("Live - Statistics", fixture)
+    else{
+        console.log("Error - Statistics", fixture)
+    }
     return liveData;
 };

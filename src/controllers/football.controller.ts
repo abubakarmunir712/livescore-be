@@ -47,7 +47,7 @@ export const getMatchesByDateC = async (req: Request, res: Response) => {
     let data1 = await getMatchesByDate(startUtc, false, 3600 * 24 * 7, 3600 * 24 * 7)
     let data2: FootballAPIResponse = { data: [], error: null };
     if (daysDiff(startUtc, endUtc) != 0) {
-        data2 = await getMatchesByDate(startUtc, false, 3600 * 24 * 7, 3600 * 24 * 7)
+        data2 = await getMatchesByDate(endUtc, false, 3600 * 24 * 7, 3600 * 24 * 7)
 
     }
 
