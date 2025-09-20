@@ -1,7 +1,7 @@
 import { Request, Response } from "express";
 import { getLiveMatches, getMatchesByDate, getLeagueStandings, getFixtureStatistics, getTeamFixtures, getHeadToHead, getFixtureEvent } from "../services/football.service";
 import { FootballAPIResponse, Status } from "../types/type";
-
+import pLimit from "p-limit";
 
 const validStatuses: Status[] = ["live", "upcoming", "finished"];
 
@@ -79,45 +79,58 @@ export const getMatchesByDateC = async (req: Request, res: Response) => {
 }
 
 
+
+
 export const getStats = async (response: any[]) => {
-    for (const match of response) {
-        const standings = await getLeagueStandings(
-            match.league.id.toString(),
-            match.league.season.toString(),
-            false,
-            3600 * 7 * 24,
-            3600 * 7 * 24
-        );
-        match["standings"] = standings.data ?? null;
+  const limit = pLimit(20); // max 20 tasks at once
 
-        const statistics = await getFixtureStatistics(
-            match.fixture.id.toString(),
-            false,
-            3600 * 7 * 24,
-            3600 * 7 * 24
-        );
-        match["statistics"] = statistics.data ?? null;
+  const tasks = response.map((match) =>
+    limit(async () => {
+      const [
+        standings,
+        statistics,
+        streak1,
+        streak2,
+        h2h,
+        events,
+      ] = await Promise.all([
+        getLeagueStandings(
+          match.league.id.toString(),
+          match.league.season.toString(),
+          false,
+          3600 * 7 * 24,
+          3600 * 7 * 24
+        ),
+        getFixtureStatistics(
+          match.fixture.id.toString(),
+          false,
+          3600 * 7 * 24,
+          3600 * 7 * 24
+        ),
+        getTeamFixtures(match.teams.home.id.toString(), false, 3600 * 7 * 25, 3600 * 7 * 25),
+        getTeamFixtures(match.teams.away.id.toString(), false, 3600 * 7 * 25, 3600 * 7 * 25),
+        getHeadToHead(
+          match.teams.home.id.toString(),
+          match.teams.away.id.toString(),
+          false,
+          3600 * 7 * 25,
+          3600 * 7 * 25
+        ),
+        getFixtureEvent(match.fixture.id.toString(), false, 3600 * 7 * 24, 3600 * 7 * 24),
+      ]);
 
-        const streak1 = await getTeamFixtures(match.teams.home.id.toString(), false, 3600 * 7 * 25, 3600 * 7 * 25);
-        match[`streak-${match.teams.home.id}`] = streak1.data ?? null;
+      match["standings"] = standings.data ?? null;
+      match["statistics"] = statistics.data ?? null;
+      match[`streak-${match.teams.home.id}`] = streak1.data ?? null;
+      match[`streak-${match.teams.away.id}`] = streak2.data ?? null;
+      match["h2h"] = h2h.data ?? null;
+      match["events"] = events.data ?? null;
 
-        const streak2 = await getTeamFixtures(match.teams.away.id.toString(), false, 3600 * 7 * 25, 3600 * 7 * 25);
-        match[`streak-${match.teams.away.id}`] = streak2.data ?? null;
+      return match;
+    })
+  );
 
-        const h2h = await getHeadToHead(
-            match.teams.home.id.toString(),
-            match.teams.away.id.toString(),
-            false,
-            3600 * 7 * 25,
-            3600 * 7 * 25
-        );
-        match["h2h"] = h2h.data ?? null;
-
-        const events = await getFixtureEvent(match.fixture.id.toString(), false, 3600 * 7 * 24, 3600 * 7 * 24);
-        match["events"] = events.data ?? null;
-    }
-
-    return response;
+  return Promise.all(tasks);
 };
 
 
