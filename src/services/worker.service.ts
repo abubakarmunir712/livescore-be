@@ -1,3 +1,4 @@
+import { daysDiff } from "../controllers/football.controller"
 import { getMatchesByDate, getLeagueStandings, getHeadToHead, getLiveMatches, getFixtureEvent, getFixtureStatistics, getTeamFixtures } from "./football.service"
 
 const liveLeagues: Set<number> = new Set()
@@ -139,12 +140,26 @@ const teamStreak = async (teams: Set<string>) => {
 export const worker = async () => {
     let prevLive: any[] = []
     let liveFixtures: any[] = []
+    let isLimitReached: boolean = false
+    let currentDate = new Date()
     setInterval(async () => {
         console.log("Worker Started")
+        if (isLimitReached) {
+            if (daysDiff(new Date, currentDate)) {
+                console.log("Plan Limit Reached!")
+                return
+            }
+            isLimitReached = false
+            currentDate = new Date()
+        }
         const lMatches = await getLiveMatches(true, 60, 60)
         if (lMatches.data) {
             prevLive = liveFixtures
             liveFixtures = lMatches.data
+        }
+        else if (lMatches.error?.requests) {
+            isLimitReached = true
+            currentDate = new Date()
         }
 
         getMatchesByDate(new Date(), true, 3600 * 7 * 24, 0)
