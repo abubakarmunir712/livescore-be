@@ -38,7 +38,7 @@ const fetchAllFixtures = async (startDate: Date, endDate: Date): Promise<[Set<st
     const uniqueTeams = new Set<string>()
 
     for (let d = new Date(startDate); d <= endDate; d.setDate(d.getDate() + 1)) {
-        const response = await getMatchesByDate(d, false, 3600 * 24 * 7, 3600 * 24 * 7)
+        const response = await getMatchesByDate(d, true, 3600 * 24 * 7, 3600 * 24 * 7)
         if (response.data) {
             for (const match of response.data) {
                 const leagueKey = `${match.league.id}-${match.league.season}`
