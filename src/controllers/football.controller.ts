@@ -5,17 +5,16 @@ import { FootballAPIResponse, Status } from "../types/type";
 const validStatuses: Status[] = ["live", "upcoming", "finished"];
 
 export const getMatchesByDateC = async (req: Request, res: Response) => {
+    const { date, timezone, status, start, search } = req.body;
 
-    const { date, timezone, status } = req.body;
+    // --- validation ---
     if (!date || !status || timezone === undefined) {
         return res.status(400).json({
             error: "date, timezone and status are all required fields."
         });
     }
     if (!validStatuses.includes(status)) {
-        return res.status(400).json({
-            error: "Invalid status"
-        });
+        return res.status(400).json({ error: "Invalid status" });
     }
 
     const parsedDate = new Date(date);
@@ -31,52 +30,82 @@ export const getMatchesByDateC = async (req: Request, res: Response) => {
         });
     }
 
-    if (status == "live") {
-        const liveData = await getLiveMatches(false, 60, 60)
+    let allMatches: any[] = [];
+
+    // --- live matches ---
+    if (status === "live") {
+        const liveData = await getLiveMatches(false, 60, 60);
         if (liveData.error) {
-            return res.status(500).json({ error: liveData.error })
+            return res.status(500).json({ error: liveData.error });
         }
-        else {
-            const dataStats = await getStats(liveData.data)
-            return res.json({ data: dataStats })
+        allMatches = liveData.data;
+    } else {
+        // --- scheduled/finished etc matches ---
+        const { startUtc, endUtc } = getUtcRangeForLocalDate(parsedDate, timezone);
+        let data1 = await getMatchesByDate(startUtc, false, 3600 * 24 * 7, 3600 * 24 * 7);
+        let data2: FootballAPIResponse = { data: [], error: null };
+
+        if (daysDiff(startUtc, endUtc) !== 0) {
+            data2 = await getMatchesByDate(endUtc, false, 3600 * 24 * 7, 3600 * 24 * 7);
         }
+
+        if (data1?.error || data2?.error) {
+            return res.status(500).json({
+                error: {
+                    ...(data1?.error || {}),
+                    ...(data2?.error || {})
+                }
+            });
+        }
+
+        allMatches = [...data1.data, ...data2.data];
     }
 
-    const { startUtc, endUtc } = getUtcRangeForLocalDate(parsedDate, timezone);
-    let data1 = await getMatchesByDate(startUtc, false, 3600 * 24 * 7, 3600 * 24 * 7)
-    let data2: FootballAPIResponse = { data: [], error: null };
-    if (daysDiff(startUtc, endUtc) != 0) {
-        data2 = await getMatchesByDate(endUtc, false, 3600 * 24 * 7, 3600 * 24 * 7)
-
-    }
-
-    if (data1?.error || data2?.error) {
-        return res.status(500).json({
-            error: {
-                ...(data1?.error || {}),
-                ...(data2?.error || {})
-            }
-        })
-    }
-
-    const data = [...data1.data, ...data2?.data]
-
-    let filteredData: any[] = []
-    data.forEach((element: any) => {
-        const matchUtc = new Date(element.fixture.date);
-        const matchLocal = new Date(matchUtc.getTime() - timezone * 60 * 1000);
-        if (daysDiff(parsedDate, matchLocal) === 0 && mapToStatus(element.fixture.status.short) == status) {
-            filteredData.push(element);
+    // --- common filtering ---
+    let filteredData = allMatches.filter((element: any) => {
+        // for non-live: filter by date & status
+        if (status !== "live") {
+            const matchUtc = new Date(element.fixture.date);
+            const matchLocal = new Date(matchUtc.getTime() - timezone * 60 * 1000);
+            return (
+                daysDiff(parsedDate, matchLocal) === 0 &&
+                mapToStatus(element.fixture.status.short) === status
+            );
         }
+        // for live: just status check
+        return mapToStatus(element.fixture.status.short) === "live";
     });
 
-    const dataStats = await getStats(filteredData)
+    // --- search filter ---
+    if (search && search.trim() !== "") {
+        const query = search.trim().toLowerCase();
+        filteredData = filteredData.filter((m: any) => {
+            return (
+                m.league?.name?.toLowerCase().includes(query) ||
+                m.league?.country?.toLowerCase().includes(query) ||
+                m.teams?.home?.name?.toLowerCase().includes(query) ||
+                m.teams?.away?.name?.toLowerCase().includes(query)
+            );
+        });
+    }
 
-    return res.json({ data: dataStats })
+    // --- paging ---
+    const startIdx = Math.max(Number(start) || 0, 0);
+    const limit = 20;
+    const endIdx = Math.min(startIdx + limit, filteredData.length)
+    const pagedData = filteredData.slice(startIdx, startIdx + limit);
 
+    // --- stats ---
+    const dataStats = await getStats(pagedData);
 
-}
-
+    return res.json({
+        data: dataStats,
+        total: filteredData.length,
+        pageStart: startIdx,
+        pageSize: limit,
+        query: search || ""
+    });
+};
 
 
 
