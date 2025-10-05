@@ -7,7 +7,7 @@ import { initialFetch, worker } from "./services/worker.service";
 const PORT = process.env.PORT || 3000
 app.listen(PORT, async () => {
     console.log('Server started on port', PORT)
-    // await initialFetch()
+    await initialFetch()
     worker()
 })
 
