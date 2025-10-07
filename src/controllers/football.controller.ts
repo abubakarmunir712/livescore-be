@@ -5,7 +5,7 @@ import { FootballAPIResponse, Status } from "../types/type";
 const validStatuses: Status[] = ["live", "upcoming", "finished"];
 
 export const getMatchesByDateC = async (req: Request, res: Response) => {
-    const { date, timezone, status, start, search } = req.body;
+    const { date, timezone, status, start, search, toggle } = req.body;
 
     // --- validation ---
     if (!date || !status || timezone === undefined) {
@@ -93,7 +93,12 @@ export const getMatchesByDateC = async (req: Request, res: Response) => {
     const startIdx = Math.max(Number(start) || 0, 0);
     const limit = 20;
     const endIdx = Math.min(startIdx + limit, filteredData.length)
-    const pagedData = filteredData.slice(startIdx, startIdx + limit);
+    if (toggle) {
+        filteredData = filteredData.sort(
+            (a, b) => a.league.id - b.league.id
+        );
+    }
+    const pagedData = filteredData.slice(startIdx, endIdx);
 
     // --- stats ---
     const dataStats = await getStats(pagedData);
